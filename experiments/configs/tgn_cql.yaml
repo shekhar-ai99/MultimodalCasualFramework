@@ -1,0 +1,4 @@
+inherits: base.yaml
+model:
+  name: tgn_cql
+notes: "Baseline TGN + CQL + Conformal + gated XAI"
