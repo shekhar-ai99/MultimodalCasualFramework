@@ -1,5 +1,12 @@
 # ICU Causal RL with TGN + CQL + Conformal XAI
 
+## Google Colab Quickstart
+Run the project in Colab with the single notebook runner:
+[MultimodalCasualFramework_Colab.ipynb](MultimodalCasualFramework_Colab.ipynb)
+
+For copy-paste cells, including Google Drive and MIMIC-III setup, see:
+[COLAB_RUN.md](COLAB_RUN.md)
+
 ## Overview
 Implementation scaffold for:
 "A Multimodal Causal Framework for Personalized ICU Interventions"
