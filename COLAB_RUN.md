@@ -160,7 +160,67 @@ else:
     print("Data directory is not available yet:", data_dir)
 ```
 
-## 7. Auto-detect and run a Python entrypoint
+## 7. Create a small MIMIC-III CSV sample
+
+This creates a local sample folder capped at 10 MB total, then points `MIMIC_III_DATA_DIR` to that sample. Change `SAMPLE_TOTAL_MB` to `5` if you want a 5 MB cap.
+
+```python
+from pathlib import Path
+import os
+
+source_dir = Path(os.environ.get("MIMIC_III_DATA_DIR", "/content/drive/MyDrive/mimic3"))
+sample_dir = Path("/content/mimic3_sample")
+sample_dir.mkdir(parents=True, exist_ok=True)
+
+core_files = globals().get("CORE_MIMIC_CSVS", [
+    "ADMISSIONS.csv",
+    "ICUSTAYS.csv",
+    "PATIENTS.csv",
+    "D_LABITEMS.csv",
+    "DIAGNOSES_ICD.csv",
+])
+all_csv_files = sorted(path.name for path in source_dir.glob("*.csv"))
+sample_files = list(dict.fromkeys(core_files + all_csv_files))
+SAMPLE_TOTAL_MB = 10
+total_limit = SAMPLE_TOTAL_MB * 1024 * 1024
+per_file_limit = max(total_limit // max(len(sample_files), 1), 128 * 1024)
+
+def copy_csv_head(src, dst, byte_limit):
+    copied = 0
+    with src.open("rb") as source, dst.open("wb") as target:
+        header = source.readline()
+        target.write(header)
+        copied += len(header)
+        for line in source:
+            if copied + len(line) > byte_limit:
+                break
+            target.write(line)
+            copied += len(line)
+    return copied
+
+total_copied = 0
+for name in sample_files:
+    remaining = total_limit - total_copied
+    if remaining <= 0:
+        break
+    src = source_dir / name
+    dst = sample_dir / name
+    if not src.exists():
+        print("Skipping missing file:", name)
+        continue
+    copied = copy_csv_head(src, dst, min(per_file_limit, remaining))
+    total_copied += copied
+    print(f"Sampled {name}: {copied / (1024 * 1024):.2f} MB")
+
+os.environ["MIMIC_III_FULL_DATA_DIR"] = str(source_dir)
+os.environ["MIMIC_III_DATA_DIR"] = str(sample_dir)
+
+print("Full MIMIC-III directory:", source_dir)
+print("Sample MIMIC-III directory:", sample_dir)
+print(f"Total sample size: {total_copied / (1024 * 1024):.2f} MB")
+```
+
+## 8. Auto-detect and run a Python entrypoint
 
 ```python
 from pathlib import Path
