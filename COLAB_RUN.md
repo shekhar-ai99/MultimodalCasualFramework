@@ -67,23 +67,64 @@ Your shared Google Drive folder is:
 https://drive.google.com/drive/folders/1s4F5qFepqFJVYJU3ii62RWSYy2Z8bGAF
 ```
 
-In Colab, create a shortcut for that folder in `MyDrive` named `mimic3_data`, then run:
+If the folder is in `Shared with me`, add it as a shortcut to `MyDrive`. The cell below first checks common folder names, then searches your Drive for `ADMISSIONS.csv` and uses that folder automatically.
 
 ```python
 from google.colab import drive
 from pathlib import Path
 import os
 
-drive.mount("/content/drive")
+try:
+    drive.mount("/content/drive", force_remount=True, timeout_ms=120000)
+except ValueError as exc:
+    print("Google Drive mount failed.")
+    print("Try Runtime > Restart session, then run this cell again.")
+    print("If the browser asks for Google authorization, allow access.")
+    raise exc
 
-MIMIC_III_DATA_DIR = Path("/content/drive/MyDrive/mimic3_data")
+CORE_MIMIC_CSVS = [
+    "ADMISSIONS.csv",
+    "ICUSTAYS.csv",
+    "PATIENTS.csv",
+    "D_LABITEMS.csv",
+    "DIAGNOSES_ICD.csv",
+]
+
+candidate_dirs = [
+    Path("/content/drive/MyDrive/mimic3"),
+    Path("/content/drive/MyDrive/MIMIC3"),
+    Path("/content/drive/MyDrive/mimic3_data"),
+    Path("/content/drive/MyDrive/MIMIC-III"),
+]
+
+MIMIC_III_DATA_DIR = next(
+    (path for path in candidate_dirs if (path / "ADMISSIONS.csv").exists()),
+    None,
+)
+
+if MIMIC_III_DATA_DIR is None:
+    search_roots = [
+        Path("/content/drive/MyDrive"),
+        Path("/content/drive/Shareddrives"),
+    ]
+    for root in search_roots:
+        if not root.exists():
+            continue
+        matches = list(root.rglob("ADMISSIONS.csv"))
+        if matches:
+            MIMIC_III_DATA_DIR = matches[0].parent
+            break
+
+if MIMIC_III_DATA_DIR is None:
+    MIMIC_III_DATA_DIR = Path("/content/drive/MyDrive/mimic3")
+
 os.environ["MIMIC_III_DATA_DIR"] = str(MIMIC_III_DATA_DIR)
 
 if MIMIC_III_DATA_DIR.exists():
     print("MIMIC-III data directory found:", MIMIC_III_DATA_DIR)
 else:
     print("MIMIC-III data directory was not found.")
-    print("Add a Drive shortcut named mimic3_data that points to:")
+    print("Add the shared Drive folder as a shortcut in MyDrive, or update MIMIC_III_DATA_DIR manually.")
     print("https://drive.google.com/drive/folders/1s4F5qFepqFJVYJU3ii62RWSYy2Z8bGAF")
 ```
 
@@ -93,11 +134,28 @@ else:
 from pathlib import Path
 import os
 
-data_dir = Path(os.environ.get("MIMIC_III_DATA_DIR", "/content/drive/MyDrive/mimic3_data"))
+data_dir = Path(os.environ.get("MIMIC_III_DATA_DIR", "/content/drive/MyDrive/mimic3"))
+expected_csvs = globals().get("CORE_MIMIC_CSVS", [
+    "ADMISSIONS.csv",
+    "ICUSTAYS.csv",
+    "PATIENTS.csv",
+    "D_LABITEMS.csv",
+    "DIAGNOSES_ICD.csv",
+])
 
 if data_dir.exists():
-    for path in sorted(data_dir.iterdir())[:40]:
-        print(path.name)
+    print("MIMIC-III directory:", data_dir)
+    print("First files:")
+    for path in sorted(data_dir.glob("*.csv"))[:40]:
+        print("-", path.name)
+
+    missing = [name for name in expected_csvs if not (data_dir / name).exists()]
+    if missing:
+        print("Missing expected MIMIC-III CSV files:")
+        for name in missing:
+            print("-", name)
+    else:
+        print("Found expected core MIMIC-III CSV files.")
 else:
     print("Data directory is not available yet:", data_dir)
 ```
